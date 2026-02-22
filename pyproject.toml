@@ -1,0 +1,22 @@
+[project]
+name = "downloader"
+version = "0.1.0"
+description = "download wrapper with callback"
+authors = [{ name = "cupang-afk", email = "pixelview56@gmail.com" }]
+dependencies = ["requests>=2.32.5"]
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+
+[project.optional-dependencies]
+curl = [
+    "pycurl>=7.45.7",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+
+[tool.pdm]
+distribution = true

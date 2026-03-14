@@ -1,8 +1,6 @@
 # The Downloader
 
-[![PyPI](https://img.shields.io/pypi/v/the-downloader.svg)](https://pypi.org/project/the-downloader/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/the-downloader.svg)](https://pypi.org/project/the-downloader/)
-[![License](https://img.shields.io/github/license/heterek/the_downloader)](https://github.com/heterek/the_downloader/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/cupang-afk/the-downloader)](https://github.com/cupang-afk/the-downloader/blob/main/LICENSE)
 
 ## Overview
 
@@ -24,7 +22,6 @@ The Downloader is a flexible and extensible Python library for downloading files
     - [Key Features](#key-features)
   - [Table of Contents](#table-of-contents)
   - [Installation](#installation)
-    - [Basic Installation](#basic-installation)
     - [Installation with Additional Providers](#installation-with-additional-providers)
   - [Quick Start](#quick-start)
     - [Basic Download](#basic-download)
@@ -53,10 +50,16 @@ The Downloader is a flexible and extensible Python library for downloading files
 
 ## Installation
 
-### Basic Installation
+Since this package is not available on PyPI, you can install directly from the GitHub repository:
 
 ```bash
-pip install the-downloader
+# Install from GitHub using pip
+pip install git+https://github.com/cupang-afk/the-downloader.git
+
+# Or clone the repository and install locally
+git clone https://github.com/cupang-afk/the-downloader.git
+cd the-downloader
+pip install .
 ```
 
 ### Installation with Additional Providers
@@ -65,7 +68,7 @@ Some providers require additional dependencies:
 
 ```bash
 # For pycurl support
-pip install the-downloader[pycurl]
+pip install git+https://github.com/cupang-afk/the-downloader.git[pycurl]
 ```
 
 > **Note**: Make sure you have the required command-line tools (like `curl`, `wget`, `aria2c`) installed on your system if you plan to use the corresponding providers.

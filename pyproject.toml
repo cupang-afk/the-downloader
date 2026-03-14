@@ -7,7 +7,7 @@ authors = [{ name = "cupang-afk", email = "pixelview56@gmail.com" }]
 dependencies = ["requests>=2.32.5", "certifi>=2026.2.25"]
 requires-python = ">=3.12"
 readme = "README.md"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 
 [project.optional-dependencies]
 pycurl = ["pycurl>=7.45.7"]

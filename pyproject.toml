@@ -1,7 +1,7 @@
 # cSpell:ignoreRegExp .*
 [project]
 name = "the-downloader"
-version = "0.1.0"
+version = "0.1.1"
 description = "Multi-provider download library with progress tracking and concurrent download support"
 authors = [{ name = "cupang-afk", email = "pixelview56@gmail.com" }]
 dependencies = ["requests>=2.32.5", "certifi>=2026.2.25"]

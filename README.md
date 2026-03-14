@@ -71,7 +71,8 @@ Some providers require additional dependencies:
 pip install git+https://github.com/cupang-afk/the-downloader.git[pycurl]
 ```
 
-> **Note**: Make sure you have the required command-line tools (like `curl`, `wget`, `aria2c`) installed on your system if you plan to use the corresponding providers.
+> [!NOTE]
+> Make sure you have the required command-line tools (like `curl`, `wget`, `aria2c`) installed on your system if you plan to use the corresponding providers.
 
 ## Quick Start
 
@@ -389,7 +390,8 @@ with downloader:
     downloader.download(task)
 ```
 
-> **Warning**: All callbacks should return 0 or `None`; otherwise, a `CallbackNonZeroReturnError` will be raised.
+> [!WARNING]
+> All callbacks should return 0 or `None`; otherwise, a `CallbackNonZeroReturnError` will be raised.
 
 ### Creating Custom Callbacks
 
@@ -663,4 +665,4 @@ We welcome contributions to The Downloader! Please see our [CONTRIBUTING.md](CON
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.

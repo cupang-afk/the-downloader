@@ -54,6 +54,7 @@ class Downloader:
 
         self._running_event.set()
         self.downloader.__pre_start__()
+        self.callback.__pre_start__()
 
     def stop(self) -> None:
         """Stop the downloader.
@@ -66,6 +67,7 @@ class Downloader:
 
         self._running_event.clear()
         self.downloader.__post_stop__()
+        self.callback.__post_stop__()
 
     def download(
         self, task: DownloadTask | list[DownloadTask], overwrite: bool = False

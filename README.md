@@ -390,9 +390,6 @@ with downloader:
     downloader.download(task)
 ```
 
-> [!WARNING]
-> All callbacks should return 0 or `None`; otherwise, a `CallbackNonZeroReturnError` will be raised.
-
 ### Creating Custom Callbacks
 
 Create your own callback by implementing the `DownloadCallback` interface:
@@ -403,6 +400,12 @@ from typing import Any
 from the_downloader import DownloadCallback, DownloadTask
 
 class CustomCallback(DownloadCallback):
+    def __pre_start__(self) -> None:
+        print("Initializing download callback")
+
+    def __post_stop__(self) -> None:
+        print("Cleaning up download callback")
+
     def on_start(self, task: DownloadTask) -> None:
         print(f"Starting download: {task.url}")
 
@@ -434,6 +437,9 @@ task = DownloadTask(url="https://ash-speed.hetzner.com/100MB.bin", dest=Path("10
 with downloader:
     downloader.download(task)
 ```
+
+> [!WARNING]
+> All callbacks should return 0 or `None`; otherwise, a `CallbackNonZeroReturnError` will be raised.
 
 #### Example: Progress Bars with tqdm
 

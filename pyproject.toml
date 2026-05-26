@@ -1,0 +1,88 @@
+# cSpell: disable
+[project]
+name = "the-downloader"
+version = "0.1.0"
+description = "A download orchestrator for managing downloads with pluggable providers and callback support."
+readme = "README.md"
+authors = [
+    { name = "cupang-afk", email = "pixelview56@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "psutil>=7.2.2",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+the-downloader = "the_downloader:main"
+
+[project.optional-dependencies]
+curl = [
+    "pycurl>=7.46.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12.0"]
+build-backend = "uv_build"
+
+# pyright
+[tool.basedpyright]
+typeCheckingMode = "recommended"
+reportUnreachable = false
+reportUnnecessaryIsInstance = false
+reportUnusedCallResult = false
+reportAny = false # Any type can be usefull
+reportExplicitAny = false # Explicit Any type can be usefull too
+
+# ruff
+[tool.ruff]
+target-version = "py314"
+line-length = 88
+
+# [tool.ruff.lint]
+# select = [
+#     "ANN",
+#     "B",
+#     "C4",
+#     "D",
+#     "E",
+#     "F",
+#     "I",
+#     "N",
+#     "PERF",
+#     "PL",
+#     "RUF",
+#     "SIM",
+#     "TRY",
+#     "UP",
+#     "W",
+# ]
+# ignore = [
+#     "ANN401",  # Any type, sometime this useful
+#     "TRY003",  # Avoid specifying long messages outside the exception class
+#     "TRY301",  # Avoid raising and catching exceptions in the same try block.
+#     "PLR0913", # Too many arguments to function call
+#     "D203",    # one-blank-line-before-class (conflicts with D211)
+#     "D212",    # multi-line-summary-first-line (allow flexibility)
+# ]
+# fixable = ["ALL"]
+# unfixable = []
+
+# exclude = [
+#     ".git",
+#     ".venv",
+#     "__pycache__",
+#     "dist",
+#     "build",
+#     "migrations",
+#     "tests",
+#     "src/the_downloader/__version__.py",
+# ]
+
+# [tool.ruff.lint.pydocstyle]
+# convention = "google"
+
+# [tool.ruff.format]
+# quote-style = "double"
+# indent-style = "space"
+# line-ending = "lf"

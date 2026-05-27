@@ -1,183 +1,156 @@
-# the-downloader
+# The Downloader
 
-A small Python download orchestration library with pluggable providers, task state, retry handling, and callback-based progress reporting.
+The Downloader is a modern, modular download orchestrator for Python 3.14+, designed to provide a high-level API for managing complex download tasks. It features pluggable **Providers** (Engines) and flexible orchestration logic through **Managers**, making it suitable for everything from simple file fetching to high-performance download queuing.
 
 ## Features
 
-- Pluggable download providers:
-  - `RequestsProvider`
-  - `Aria2Provider`
-  - `CurlProvider`
-  - `WgetProvider`
-  - `PycurlProvider` when `pycurl` is installed
-- `BasicDownloadManager` for queueing and running `DownloadTask` objects.
-- Callback hooks for start, progress, finish, cancel, and error events.
-- Retry handling with final retry status via `RetryResult`.
-- Provider-owned configuration for shared provider settings such as `chunk_size`, `timeout`, and `ca_cert_path`.
-- Public and private `unittest` suites.
+- **Pluggable Providers**: Use any engine to perform the actual download. Built-in support for:
+    - `aria2`
+    - `curl` / `pycurl`
+    - `wget`
+    - `requests`
+    - Custom providers via `BaseProvider`.
+- **Custom Managers**: Orchestrate how downloads are processed:
+    - `BasicDownloadManager`: Sequential execution.
+    - `QueueDownloadManager`: Parallel execution using a thread pool.
+    - Custom managers via `BaseManager`.
+- **Lifecycle Callbacks**: Hooks for granular monitoring and control:
+    - `on_start`, `on_progress`, `on_finish`, `on_cancel`, `on_error`.
+- **Modern Standards**: Built for Python 3.14+, leveraging modern type safety and the `uv` package manager.
+- **Robust Subprocess Management**: Advanced process tree cleanup using `psutil` to ensure no zombie processes remain after cancellation or errors.
 
-## Requirements
+## Installation
 
-- Python `>=3.14`
-- `uv`
-- Runtime dependencies are declared in `pyproject.toml`.
+Install The Downloader using `uv`:
 
-Optional provider requirements:
+```bash
+uv add the-downloader
+```
 
-- `Aria2Provider` requires `aria2c` on `PATH` or an explicit binary path.
-- `CurlProvider` requires `curl` on `PATH` or an explicit binary path.
-- `WgetProvider` requires `wget` on `PATH` or an explicit binary path.
-- `PycurlProvider` requires the optional `pycurl` dependency.
+To include optional dependencies (e.g., for `PyCurlProvider`):
 
-## Basic usage
+```bash
+uv add the-downloader[curl]
+```
+
+## Quick Start
+
+The following example demonstrates how to use the `QueueDownloadManager` with the `RequestsProvider` and a `BasicDownloadCallback` to download multiple files in parallel.
 
 ```python
-from the_downloader import BasicDownloadCallback, BasicDownloadManager, DownloadTask
-from the_downloader.provider import RequestsProvider
+from pathlib import Path
+from the_downloader.manager import QueueDownloadManager
+from the_downloader.provider.requests import RequestsProvider
+from the_downloader.callback import BasicDownloadCallback
+from the_downloader.task import DownloadTask
 
-manager = BasicDownloadManager(
-    provider=RequestsProvider(),
-    callback=BasicDownloadCallback(),
-)
+# 1. Initialize the provider and callback
+provider = RequestsProvider()
+callback = BasicDownloadCallback()
 
-with manager:
-    task = DownloadTask(
-        "https://example.com/file.bin",
-        "file.bin",
+# 2. Use a manager as a context manager
+with QueueDownloadManager(provider, callback, max_workers=2) as manager:
+    # 3. Create download tasks
+    task1 = DownloadTask(
+        url="https://example.com/file1.zip",
+        dest=Path("downloads/file1.zip")
     )
-    manager.add(task)
+    task2 = DownloadTask(
+        url="https://example.com/file2.zip",
+        dest=Path("downloads/file2.zip")
+    )
+
+    # 4. Add tasks to the manager
+    manager.add(task1)
+    manager.add(task2)
+
+    # 5. Wait for all downloads to complete
     manager.wait()
 ```
 
-## Provider configuration
+## Extensibility
 
-Provider-specific settings belong to the provider constructor.
+### Creating a Custom Provider
 
-Shared provider settings are keyword-only and readonly after construction:
-
-```python
-from the_downloader.provider import Aria2Provider
-
-provider = Aria2Provider(
-    "aria2c",
-    chunk_size=1024 * 64,
-    timeout=30,
-    ca_cert_path="path/to/cacert.pem",
-)
-```
-
-The provider-specific argument comes first, then shared `BaseProvider` settings:
-
-```text
-Aria2Provider(aria2c_bin_path, *, chunk_size, timeout, ca_cert_path)
-CurlProvider(curl_bin_path, *, chunk_size, timeout, ca_cert_path)
-WgetProvider(wget_bin_path, *, chunk_size, timeout, ca_cert_path)
-RequestsProvider(*, chunk_size, timeout, ca_cert_path)
-```
-
-## Manager retry configuration
-
-Retry settings belong to the manager because retries are orchestration behavior:
+You can implement your own download logic by inheriting from `BaseProvider`.
 
 ```python
-manager = BasicDownloadManager(
-    provider=RequestsProvider(),
-    callback=BasicDownloadCallback(),
-    max_retries=3,
-    retry_delay=1,
-    retry_backoff_factor=2.0,
-)
+from pathlib import PurePath
+from the_downloader.provider.base import BaseProvider
+from the_downloader.types.protocol import CheckCanceled, UpdateProgress
+
+class MyCustomProvider(BaseProvider):
+    def download(
+        self,
+        url: str,
+        dest: PurePath,
+        headers: dict[str, str],
+        check_canceled: CheckCanceled,
+        update_progress: UpdateProgress,
+    ) -> None:
+        # Your custom download logic here
+        # Frequently call check_canceled() to support interruption
+        # Call update_progress(downloaded_bytes, total_bytes) to report progress
+        pass
 ```
 
-The retry utility returns a `RetryResult` with:
+### Creating a Custom Manager
+
+Inherit from `BaseManager` to define custom orchestration logic.
 
 ```python
-result.result
-result.exceptions
-result.succeeded
-result.attempts
+from the_downloader.manager import BaseManager
+from the_downloader.task import DownloadTask
+
+class MySequentialManager(BaseManager):
+    def start(self):
+        print("Manager started")
+
+    def stop(self):
+        print("Manager stopped")
+
+    def cancel(self):
+        # Logic to cancel all active tasks
+        pass
+
+    def add(self, task: DownloadTask):
+        # Execute download immediately or queue it
+        self._handle_download(task)
+
+    def wait(self):
+        # Wait for completion
+        pass
 ```
 
-This lets the manager distinguish:
+### Creating a Custom Callback
 
-```text
-failed once, later succeeded -> succeeded=True
-all attempts failed          -> succeeded=False
+You can monitor download events by inheriting from `BaseCallback`.
+
+```python
+from typing import Any
+from the_downloader.callback import BaseCallback
+from the_downloader.task import DownloadTask
+from the_downloader.types.alias import ExcInfo
+
+class MyCustomCallback(BaseCallback):
+    def on_start(self, task: DownloadTask) -> None:
+        print(f"Starting: {task.progress_name}")
+
+    def on_progress(
+        self,
+        task: DownloadTask,
+        downloaded: int,
+        total: int,
+        **optional_data: Any
+    ) -> None:
+        # Update your UI or custom logger here
+        pass
+
+    def on_finish(self, task: DownloadTask) -> None: ...
+    def on_cancel(self, task: DownloadTask) -> None: ...
+    def on_error(self, task: DownloadTask, exc_info: ExcInfo) -> None: ...
 ```
 
-## Cancellation behavior
+## Roadmap
 
-`DownloadTask.cancel()` marks a task as canceled and sets its status to `DownloadStatus.CANCELED`.
-
-`KeyboardInterrupt` is allowed to propagate out of providers so the manager can handle cancellation consistently. Provider cleanup should not turn expected shutdown races, such as refused aria2 RPC cleanup connections, into user-visible tracebacks.
-
-## Tests
-
-This project uses the standard library `unittest` runner.
-
-Run public tests:
-
-```sh
-uv run python -m unittest discover -s tests/public -p "test_*.py"
-```
-
-Run private/internal tests:
-
-```sh
-uv run python -m unittest discover -s tests/private -p "test_*.py"
-```
-
-Run all tests:
-
-```sh
-uv run python -m unittest discover -s tests -p "test_*.py"
-```
-
-Run linting:
-
-```sh
-uv run ruff check src tests
-```
-
-Run compile check:
-
-```sh
-uv run python -m compileall src tests
-```
-
-## Test layout
-
-```text
-tests/
-  public/
-    test_constructors_base_provider.py
-    test_constructors_manager.py
-    test_constructors_providers.py
-    test_constructors_task.py
-    test_flows_manager_lifecycle.py
-    test_flows_manager_retry.py
-    test_utils_retry.py
-
-  private/
-    test_base_provider_internal.py
-    test_manager_internal.py
-    test_task_internal.py
-```
-
-Public tests cover user-facing behavior and API shape. Private tests cover intentionally internal implementation details that should still be watched during development and CI.
-
-## Development
-
-Install/sync dependencies:
-
-```sh
-uv sync
-```
-
-Run the validation suite:
-
-```sh
-uv run python -m unittest discover -s tests -p "test_*.py"
-uv run ruff check src tests
-uv run python -m compileall src tests
-```
+- [ ] **AsyncDownloadManager**: Native `asyncio` support for high-concurrency metadata fetching and download orchestration.

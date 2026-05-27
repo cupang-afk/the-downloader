@@ -1,3 +1,9 @@
+"""Aria2 download provider implementation.
+
+This module provides a download provider that uses the aria2c command-line tool
+via its XML-RPC interface.
+"""
+
 import os
 import random
 import socket
@@ -7,19 +13,32 @@ import xmlrpc.client
 from pathlib import Path, PurePath
 from typing import cast, override
 
-from ..constants import DEFAULT_CA_CERT_PATH, DEFAULT_CHUNK_SIZE, DEFAULT_TIMEOUT
 from ..exceptions import DownloadProviderError
 from ..types.protocol import CheckCanceled, UpdateProgress
 from ..utils.file import delete, resolve_binary
 from ..utils.network import check_open_port
-from .base import BaseProvider, ProviderSubprocessMixin
+from .base import (
+    DEFAULT_CA_CERT_PATH,
+    DEFAULT_CHUNK_SIZE,
+    DEFAULT_TIMEOUT,
+    BaseProvider,
+    ProviderSubprocessMixin,
+)
 
 
 class Aria2Error(DownloadProviderError):
+    """Exception raised for errors in the Aria2 provider."""
+
     pass
 
 
 class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
+    """Download provider that uses aria2c.
+
+    This provider starts an aria2c RPC server and communicates with it
+    to manage downloads.
+    """
+
     def __init__(
         self,
         aria2c_bin_path: str | Path | None = None,
@@ -28,21 +47,29 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
         timeout: int = DEFAULT_TIMEOUT,
         ca_cert_path: str = DEFAULT_CA_CERT_PATH,
     ) -> None:
+        """Initialize the Aria2 provider.
+
+        Args:
+            aria2c_bin_path: Optional path to the aria2c binary.
+            chunk_size: The size of data chunks to read/write.
+            timeout: The timeout in seconds for network operations.
+            ca_cert_path: Path to the CA certificate bundle.
+        """
         super().__init__(
             chunk_size=chunk_size,
             timeout=timeout,
             ca_cert_path=ca_cert_path,
         )
-        self.bin: Path = resolve_binary(
+        self._bin: Path = resolve_binary(
             aria2c_bin_path or ("aria2c" if os.name != "nt" else "aria2c.exe")
         )
-        self.process: subprocess.Popen[bytes] | None = None
-        self.token: str = f"token:{random.randint(100000, 999999)}"
-        self.rpc_secret: str = self.token.split(":", 1)[1]
-        self.rpc_server: xmlrpc.client.ServerProxy | None = None
+        self._rpc_process: subprocess.Popen[bytes] | None = None
+        self._rpc_token: str = f"token:{random.randint(100000, 999999)}"
+        self._rpc_server: xmlrpc.client.ServerProxy | None = None
 
     @override
     def __pre_hook__(self) -> None:
+        """Start the aria2c RPC server before downloading."""
         host: str = "localhost"
         port: int = 0
         for port in range(6800, 7000 + 1):
@@ -54,14 +81,14 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
         rpc_url = f"http://{host}:{port}/rpc"
 
         cmd = [
-            str(self.bin),
+            str(self._bin),
             "--ca-certificate",
             self.ca_cert_path,
             "--file-allocation",
             "none",
             "--enable-rpc",
             "--rpc-secret",
-            self.token.split(":", 1)[1],
+            self._rpc_token.split(":", 1)[1],
             "--rpc-listen-port",
             str(port),
             "--rpc-allow-origin-all",
@@ -69,10 +96,12 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
             "999",
             "--allow-overwrite",
         ]
-        self.process = subprocess.Popen(
+        self._rpc_process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            # There is no need for these so we set to devnull
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
         )
 
         # Wait for RPC server to be ready
@@ -87,18 +116,19 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
             self.__post_hook__()
             raise Aria2Error("Failed to start aria2c RPC server.")
 
-        self.rpc_server = xmlrpc.client.ServerProxy(rpc_url)
+        self._rpc_server = xmlrpc.client.ServerProxy(rpc_url)
 
     @override
     def __post_hook__(self) -> None:
-        if self.process:
+        """Stop the aria2c RPC server after downloading."""
+        if self._rpc_process:
             self.popen_terminate(
-                self.process,
+                self._rpc_process,
                 raise_nonzero_return=False,
                 terminate_timeout=DEFAULT_TIMEOUT,
             )
-            self.process = None
-        self.rpc_server = None
+            self._rpc_process = None
+        self._rpc_server = None
 
     @override
     def download(
@@ -109,13 +139,25 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
         check_canceled: CheckCanceled,
         update_progress: UpdateProgress,
     ) -> None:
-        if not self.rpc_server:
+        """Download a file using aria2c.
+
+        Args:
+            url: The URL of the file to download.
+            dest: The destination path.
+            headers: HTTP headers to include in the request.
+            check_canceled: A callback to check if the download should be canceled.
+            update_progress: A callback to update the download progress.
+
+        Raises:
+            Aria2Error: If the RPC server is not running or the download fails.
+        """
+        if not self._rpc_server:
             raise Aria2Error("RPC server is not running.")
 
         gid = cast(
             str,
-            self.rpc_server.aria2.addUri(
-                self.token,
+            self._rpc_server.aria2.addUri(
+                self._rpc_token,
                 [url],
                 {
                     "dir": str(dest.parent),
@@ -131,14 +173,19 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
         try:
             while True:
                 if check_canceled():
-                    self.rpc_server.aria2.remove(self.token, gid)
+                    self._rpc_server.aria2.remove(self._rpc_token, gid)
                     return
                 status = cast(
                     dict[str, str],
-                    self.rpc_server.aria2.tellStatus(
-                        self.token,
+                    self._rpc_server.aria2.tellStatus(
+                        self._rpc_token,
                         gid,
-                        ["status", "completedLength", "errorMessage", "totalLength"],
+                        [
+                            "status",
+                            "completedLength",
+                            "errorMessage",
+                            "totalLength",
+                        ],
                     ),
                 )
                 state = status.get("status")
@@ -170,16 +217,28 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
         status_pulled: bool,
         state: str | None,
     ) -> None:
-        if self.rpc_server is None:
+        """Clean up download results from the aria2c RPC server.
+
+        Args:
+            gid: The GID of the download to clean up.
+            status_pulled: Whether the status has been pulled at least once.
+            state: The final state of the download.
+        """
+        if self._rpc_server is None:
             return
 
         try:
+            self.get_logger().debug(
+                "Cleanup download result for gid %s: %s, %s, %s",
+                gid,
+                status_pulled,
+                state,
+                self._rpc_server,
+            )
             if status_pulled and state != "active":
-                self.rpc_server.aria2.remove(self.token, gid)
-            self.rpc_server.aria2.removeDownloadResult(self.token, gid)
+                self._rpc_server.aria2.remove(self._rpc_token, gid)
+            self._rpc_server.aria2.removeDownloadResult(self._rpc_token, gid)
         except (ConnectionError, OSError, xmlrpc.client.Error) as e:
             self.get_logger().debug(
-                "Ignoring aria2 RPC cleanup failure for gid %s: %s",
-                gid,
-                e,
+                "Ignoring aria2 RPC cleanup failure for gid %s: %s", gid, e
             )

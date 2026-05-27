@@ -1,10 +1,15 @@
+"""Requests session utility functions."""
+
+from functools import cache
+
 import requests
 
-_session: requests.Session | None = None
 
-
+@cache
 def get_requests_session() -> requests.Session:
-    global _session
-    if _session is None:
-        _session = requests.Session()
-    return _session
+    """Returns a cached requests session instance.
+
+    Returns:
+        A cached requests.Session object.
+    """
+    return requests.Session()

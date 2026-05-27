@@ -1,3 +1,9 @@
+"""Download providers package.
+
+This package contains various download provider implementations such as
+Aria2, Curl, Requests, Wget, and Pycurl.
+"""
+
 from .aria2 import Aria2Provider
 from .base import BaseProvider
 from .curl import CurlProvider
@@ -10,7 +16,8 @@ except ImportError:
     from ..logger import logger
 
     logger.warning(
-        "pycurl is not installed, PycurlProvider will not be available, fallback to RequestsProvider"
+        "pycurl is not installed, PycurlProvider will not be available, "
+        + "fallback PycurlProvider to use RequestsProvider"
     )
     PycurlProvider = RequestsProvider
 

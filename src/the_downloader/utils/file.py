@@ -1,12 +1,24 @@
+"""File management utility functions."""
+
 import shutil
 import stat
 from pathlib import Path
 
-from ..constants import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_DELAY
 from .retry import retry
 
 
 def resolve_binary(path: str | Path) -> Path:
+    """Resolves a binary path to its absolute path.
+
+    Args:
+        path: The path to the binary, either absolute or a name in PATH.
+
+    Returns:
+        The absolute path to the binary.
+
+    Raises:
+        FileNotFoundError: If the binary cannot be found.
+    """
     binary_path: Path = Path(path)
     if binary_path.is_absolute():
         if not binary_path.is_file():
@@ -23,14 +35,27 @@ def resolve_binary(path: str | Path) -> Path:
 
 def delete(
     path: str | Path,
-    max_retries: int = DEFAULT_MAX_RETRIES,
-    delay: int = DEFAULT_RETRY_DELAY,
-):
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+    retry_backoff_factor: float = 2.0,
+) -> None:
+    """Deletes a file or directory with retry logic and permission handling.
+
+    Args:
+        path: The path to the file or directory to delete.
+        max_retries: Maximum number of delete attempts.
+        retry_delay: Initial delay between retries in seconds.
+        retry_backoff_factor: Factor to increase the delay between retries.
+    """
     path = Path(path)
     if not path.exists():
         return
 
-    @retry(max_retries=max_retries, delay=delay)
+    @retry(
+        max_retries=max_retries,
+        delay=retry_delay,
+        backoff_factor=retry_backoff_factor,
+    )
     def handler() -> None:
         if path.is_dir():
             for item in path.rglob("*"):

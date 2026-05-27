@@ -1,3 +1,5 @@
+"""Retry logic utility functions."""
+
 from collections.abc import Callable
 from functools import wraps
 from time import sleep
@@ -5,6 +7,15 @@ from typing import NamedTuple
 
 
 class RetryResult[R](NamedTuple):
+    """Result of a function execution with retries.
+
+    Attributes:
+        result: The return value of the function if it succeeded, otherwise None.
+        exceptions: A list of exceptions encountered during all attempts.
+        succeeded: Whether the function eventually succeeded.
+        attempts: The total number of attempts made.
+    """
+
     result: R | None
     exceptions: list[Exception]
     succeeded: bool
@@ -13,10 +24,23 @@ class RetryResult[R](NamedTuple):
 
 def retry[R, **P](
     *,
-    max_retries: int,
-    delay: float,
+    max_retries: int = 3,
+    delay: float = 1.0,
     backoff_factor: float = 2.0,
 ) -> Callable[[Callable[P, R]], Callable[P, RetryResult[R]]]:
+    """Decorator that retries a function multiple times upon failure.
+
+    Args:
+        max_retries: Maximum number of retries (excluding initial attempt).
+        delay: Initial delay between retries in seconds.
+        backoff_factor: Factor by which the delay increases after each failure.
+
+    Returns:
+        A decorator that wraps the function and returns a RetryResult.
+
+    Raises:
+        ValueError: If arguments are invalid.
+    """
     if max_retries < 0:
         raise ValueError("max_retries must be greater than or equal to 0")
     if delay < 0:
@@ -54,48 +78,3 @@ def retry[R, **P](
         return wrapper
 
     return decorator
-
-
-if __name__ == "__main__":
-
-    @retry(max_retries=3, delay=0)
-    def succeeds() -> str:
-        return "ok"
-
-    success = succeeds()
-    assert success.result == "ok"
-    assert success.exceptions == []
-    assert success.succeeded is True
-    assert success.attempts == 1
-
-    attempts = 0
-
-    @retry(max_retries=3, delay=0)
-    def succeeds_after_retries() -> str:
-        global attempts
-        attempts += 1
-        if attempts < 3:
-            raise RuntimeError("not yet")
-        return "ok"
-
-    eventual_success = succeeds_after_retries()
-    assert eventual_success.result == "ok"
-    assert eventual_success.succeeded is True
-    assert eventual_success.attempts == 3
-    assert len(eventual_success.exceptions) == 2
-    assert all(
-        isinstance(exception, RuntimeError) for exception in eventual_success.exceptions
-    )
-
-    @retry(max_retries=2, delay=0)
-    def always_fails() -> str:
-        raise ValueError("nope")
-
-    failure = always_fails()
-    assert failure.result is None
-    assert failure.succeeded is False
-    assert failure.attempts == 3
-    assert len(failure.exceptions) == 3
-    assert all(isinstance(exception, ValueError) for exception in failure.exceptions)
-
-    print("retry.py tests passed")

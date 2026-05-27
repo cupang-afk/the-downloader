@@ -1,7 +1,11 @@
+"""Requests download provider implementation.
+
+This module provides a download provider that uses the requests library.
+"""
+
 from pathlib import PurePath
 from typing import override
 
-from ..constants import DEFAULT_CA_CERT_PATH, DEFAULT_CHUNK_SIZE, DEFAULT_TIMEOUT
 from ..exceptions import DownloadProviderError
 from ..types.protocol import CheckCanceled, UpdateProgress
 from ..utils.session import get_requests_session
@@ -9,22 +13,16 @@ from .base import BaseProvider
 
 
 class RequestsError(DownloadProviderError):
+    """Exception raised for errors in the Requests provider."""
+
     pass
 
 
 class RequestsProvider(BaseProvider):
-    def __init__(
-        self,
-        *,
-        chunk_size: int = DEFAULT_CHUNK_SIZE,
-        timeout: int = DEFAULT_TIMEOUT,
-        ca_cert_path: str = DEFAULT_CA_CERT_PATH,
-    ) -> None:
-        super().__init__(
-            chunk_size=chunk_size,
-            timeout=timeout,
-            ca_cert_path=ca_cert_path,
-        )
+    """Download provider that uses the requests library.
+
+    This provider uses the requests library to download files synchronously.
+    """
 
     @override
     def download(
@@ -35,6 +33,18 @@ class RequestsProvider(BaseProvider):
         check_canceled: CheckCanceled,
         update_progress: UpdateProgress,
     ) -> None:
+        """Download a file using requests.
+
+        Args:
+            url: The URL of the file to download.
+            dest: The destination path.
+            headers: HTTP headers to include in the request.
+            check_canceled: A callback to check if the download should be canceled.
+            update_progress: A callback to update the download progress.
+
+        Raises:
+            RequestsError: If the request fails or the download is interrupted.
+        """
         if check_canceled():
             return
 

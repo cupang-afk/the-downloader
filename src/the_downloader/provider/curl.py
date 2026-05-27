@@ -1,21 +1,38 @@
+"""Curl download provider implementation.
+
+This module provides a download provider that uses the curl command-line tool.
+"""
+
 import os
 from pathlib import Path, PurePath
 from typing import IO, cast, override
 
-from ..constants import DEFAULT_CA_CERT_PATH, DEFAULT_CHUNK_SIZE, DEFAULT_TIMEOUT
 from ..exceptions import DownloadProviderError
 from ..types.protocol import CheckCanceled, UpdateProgress
 from ..utils.file import resolve_binary
 from ..utils.metadata import get_total_size
 from ..utils.session import get_requests_session
-from .base import BaseProvider, ProviderSubprocessMixin
+from .base import (
+    DEFAULT_CA_CERT_PATH,
+    DEFAULT_CHUNK_SIZE,
+    DEFAULT_TIMEOUT,
+    BaseProvider,
+    ProviderSubprocessMixin,
+)
 
 
 class CurlError(DownloadProviderError):
+    """Exception raised for errors in the Curl provider."""
+
     pass
 
 
 class CurlProvider(BaseProvider, ProviderSubprocessMixin):
+    """Download provider that uses curl.
+
+    This provider runs the curl command-line tool as a subprocess to download files.
+    """
+
     def __init__(
         self,
         curl_bin_path: str | Path | None = None,
@@ -24,12 +41,20 @@ class CurlProvider(BaseProvider, ProviderSubprocessMixin):
         timeout: int = DEFAULT_TIMEOUT,
         ca_cert_path: str = DEFAULT_CA_CERT_PATH,
     ) -> None:
+        """Initialize the Curl provider.
+
+        Args:
+            curl_bin_path: Optional path to the curl binary.
+            chunk_size: The size of data chunks to read/write.
+            timeout: The timeout in seconds for network operations.
+            ca_cert_path: Path to the CA certificate bundle.
+        """
         super().__init__(
             chunk_size=chunk_size,
             timeout=timeout,
             ca_cert_path=ca_cert_path,
         )
-        self.bin: Path = resolve_binary(
+        self._bin: Path = resolve_binary(
             curl_bin_path or ("curl" if os.name != "nt" else "curl.exe")
         )
 
@@ -42,11 +67,23 @@ class CurlProvider(BaseProvider, ProviderSubprocessMixin):
         check_canceled: CheckCanceled,
         update_progress: UpdateProgress,
     ) -> None:
+        """Download a file using curl.
+
+        Args:
+            url: The URL of the file to download.
+            dest: The destination path.
+            headers: HTTP headers to include in the request.
+            check_canceled: A callback to check if the download should be canceled.
+            update_progress: A callback to update the download progress.
+
+        Raises:
+            CurlError: If curl fails to download the file.
+        """
         if check_canceled():
             return
 
         # cSpell: words globoff
-        cmd: list[str] = [str(self.bin)]
+        cmd: list[str] = [str(self._bin)]
         opt: list[str] = [
             "--output",
             "-",

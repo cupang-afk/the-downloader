@@ -1,26 +1,50 @@
+"""Base classes and utilities for download providers.
+
+This module provides the abstract base class for all download providers
+and a mixin for providers that use subprocesses.
+"""
+
 import os
 import subprocess
 from abc import ABCMeta, abstractmethod
 from collections.abc import Generator, Sequence
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from functools import cache
 from logging import Logger
 from pathlib import PurePath
 from typing import Any, Literal, cast, final, overload
 
+import certifi
 import psutil
 
-from ..constants import DEFAULT_CA_CERT_PATH, DEFAULT_CHUNK_SIZE, DEFAULT_TIMEOUT
 from ..logger import logger
 from ..types.protocol import CheckCanceled, UpdateProgress
+
+DEFAULT_CHUNK_SIZE: int = 1024 * 64  # 64 kb
+DEFAULT_TIMEOUT: int = 10
+DEFAULT_CA_CERT_PATH: str = certifi.where()
 
 
 @cache
 def _get_cached_logger(name: str) -> Logger:
+    """Get a cached logger for the given name.
+
+    Args:
+        name: The name of the logger.
+
+    Returns:
+        A Logger instance.
+    """
     return logger.getChild(name)
 
 
 class BaseProvider(metaclass=ABCMeta):
+    """Abstract base class for all download providers.
+
+    All download providers should inherit from this class and implement
+    the `download` method.
+    """
+
     def __init__(
         self,
         *,
@@ -28,32 +52,61 @@ class BaseProvider(metaclass=ABCMeta):
         timeout: int = DEFAULT_TIMEOUT,
         ca_cert_path: str = DEFAULT_CA_CERT_PATH,
     ) -> None:
+        """Initialize the base provider.
+
+        Args:
+            chunk_size: The size of data chunks to read/write.
+            timeout: The timeout in seconds for network operations.
+            ca_cert_path: Path to the CA certificate bundle.
+        """
         self._chunk_size: int = chunk_size
         self._timeout: int = timeout
         self._ca_cert_path: str = ca_cert_path
 
     @property
     def chunk_size(self) -> int:
+        """Get the chunk size.
+
+        Returns:
+            The chunk size in bytes.
+        """
         return self._chunk_size
 
     @property
     def timeout(self) -> int:
+        """Get the timeout.
+
+        Returns:
+            The timeout in seconds.
+        """
         return self._timeout
 
     @property
     def ca_cert_path(self) -> str:
+        """Get the CA certificate path.
+
+        Returns:
+            Path to the CA certificate bundle.
+        """
         return self._ca_cert_path
 
     # hook
     def __pre_hook__(self) -> None:
+        """Hook called before the download starts."""
         return
 
     def __post_hook__(self) -> None:
+        """Hook called after the download finishes."""
         return
 
     # method
     @final
     def get_logger(self) -> Logger:
+        """Get the logger for this provider.
+
+        Returns:
+            A Logger instance named after the class.
+        """
         return _get_cached_logger(type(self).__name__)
 
     # abstract method
@@ -66,10 +119,27 @@ class BaseProvider(metaclass=ABCMeta):
         check_canceled: CheckCanceled,
         update_progress: UpdateProgress,
     ) -> None:
+        """Download a file from a URL to a destination.
+
+        Args:
+            url: The URL of the file to download.
+            dest: The destination path.
+            headers: HTTP headers to include in the request.
+            check_canceled: A callback to check if the download should be canceled.
+            update_progress: A callback to update the download progress.
+
+        Raises:
+            NotImplementedError: If the method is not implemented by a subclass.
+        """
         raise NotImplementedError
 
 
 class ProviderSubprocessMixin:
+    """Mixin class for providers that use subprocesses.
+
+    Provides utilities for running and terminating subprocesses.
+    """
+
     @overload
     @contextmanager
     def popen_wrapper(
@@ -100,6 +170,23 @@ class ProviderSubprocessMixin:
         terminate_timeout: int = DEFAULT_TIMEOUT,
         **kwargs: Any,
     ) -> Generator[subprocess.Popen[str] | subprocess.Popen[bytes]]:
+        """Run a subprocess and yield the Popen object.
+
+        Args:
+            command: The command to run as a sequence of strings.
+            raise_non_zero_return: Whether to raise an exception if the process
+                returns non-zero.
+            terminate_timeout: The timeout in seconds to wait for the process
+                to terminate.
+            **kwargs: Additional arguments to pass to `subprocess.Popen`.
+
+        Yields:
+            A `subprocess.Popen` object.
+
+        Raises:
+            subprocess.CalledProcessError: If `raise_non_zero_return` is True
+                and the process returns a non-zero exit code.
+        """
         kwargs.setdefault("stdout", subprocess.PIPE)
         kwargs.setdefault("stderr", subprocess.DEVNULL)
         kwargs.setdefault("stdin", subprocess.DEVNULL)
@@ -141,6 +228,20 @@ class ProviderSubprocessMixin:
         raise_nonzero_return: bool,
         terminate_timeout: int,
     ) -> None:
+        """Terminate a process and its children.
+
+        Args:
+            process: The process to terminate.
+            raise_nonzero_return: Whether to raise an exception if the process
+                returns non-zero.
+            terminate_timeout: The timeout in seconds to wait for each stage
+                of termination.
+
+        Raises:
+            ValueError: If `terminate_timeout` is negative.
+            subprocess.CalledProcessError: If `raise_nonzero_return` is True
+                and the process returns a non-zero exit code.
+        """
         if terminate_timeout < 0:
             raise ValueError("terminate_timeout must be >= 0")
 
@@ -156,19 +257,15 @@ class ProviderSubprocessMixin:
                 processes = []
 
             for proc in processes:
-                try:
+                with suppress(psutil.NoSuchProcess):
                     proc.terminate()
-                except psutil.NoSuchProcess:
-                    pass
 
             # cSpell: words  procs
             _, alive = psutil.wait_procs(processes, timeout=terminate_timeout)
 
             for proc in alive:
-                try:
+                with suppress(psutil.NoSuchProcess):
                     proc.kill()
-                except psutil.NoSuchProcess:
-                    pass
 
             psutil.wait_procs(alive, timeout=terminate_timeout)
 

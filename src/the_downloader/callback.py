@@ -171,3 +171,33 @@ class BasicDownloadCallback(BaseCallback):
             ),
             flush=True,
         )
+
+
+class NullDownloadCallback(BaseCallback):
+    """A download callback that does nothing."""
+
+    @override
+    def on_start(self, task: DownloadTask) -> None:
+        pass
+
+    @override
+    def on_finish(self, task: DownloadTask) -> None:
+        pass
+
+    @override
+    def on_cancel(self, task: DownloadTask) -> None:
+        pass
+
+    @override
+    def on_error(self, task: DownloadTask, exc_info: ExcInfo) -> None:
+        pass
+
+    @override
+    def on_progress(
+        self,
+        task: DownloadTask,
+        downloaded: int,
+        total: int,
+        **optional_data: Any,
+    ) -> None:
+        pass

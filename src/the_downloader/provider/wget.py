@@ -4,6 +4,7 @@ This module provides a download provider that uses the wget command-line tool.
 """
 
 import os
+from logging import Logger
 from pathlib import Path, PurePath
 from typing import IO, cast, override
 
@@ -79,7 +80,9 @@ class WgetProvider(BaseProvider, ProviderSubprocessMixin):
         Raises:
             WgetError: If wget fails to download the file.
         """
+        _logger: Logger = self.get_logger()
         if check_canceled():
+            _logger.debug("Canceled before start")
             return
 
         cmd = [str(self._bin), "--output-document=-", "--quiet"]
@@ -112,6 +115,7 @@ class WgetProvider(BaseProvider, ProviderSubprocessMixin):
                     raise WgetError("No output from wget")
                 while True:
                     if check_canceled():
+                        _logger.debug("Canceled — %d/%d bytes", downloaded, total)
                         break
                     chunk = cast(IO[bytes], p.stdout).read(self.chunk_size)
                     if not chunk:

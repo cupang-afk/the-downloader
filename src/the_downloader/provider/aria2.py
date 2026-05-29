@@ -10,6 +10,7 @@ import socket
 import subprocess
 import time
 import xmlrpc.client
+from logging import Logger
 from pathlib import Path, PurePath
 from typing import cast, override
 
@@ -151,7 +152,9 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
         Raises:
             Aria2Error: If the RPC server is not running or the download fails.
         """
+        _logger: Logger = self.get_logger()
         if not self._rpc_server:
+            _logger.error("RPC server is not running")
             raise Aria2Error("RPC server is not running.")
 
         gid = cast(
@@ -166,6 +169,7 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
                 },
             ),
         )
+        _logger.debug("GID: %s", gid)
         # status is fetched at least once so cleanup knows whether aria2
         # has accepted the download and can safely remove it from active tasks.
         status_pulled: bool = False
@@ -173,6 +177,7 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
         try:
             while True:
                 if check_canceled():
+                    _logger.debug("Canceled — GID %s", gid)
                     self._rpc_server.aria2.remove(self._rpc_token, gid)
                     return
                 status = cast(
@@ -194,6 +199,7 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
                 update_progress(downloaded, total)
 
                 if state != "active":
+                    _logger.debug("Download %s state: %s", gid, state)
                     break
 
                 if not status_pulled:

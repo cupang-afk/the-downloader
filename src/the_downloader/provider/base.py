@@ -9,7 +9,6 @@ import subprocess
 from abc import ABCMeta, abstractmethod
 from collections.abc import Generator, Sequence
 from contextlib import contextmanager, suppress
-from functools import cache
 from logging import Logger
 from pathlib import PurePath
 from typing import Any, Literal, cast, final, overload
@@ -17,25 +16,12 @@ from typing import Any, Literal, cast, final, overload
 import certifi
 import psutil
 
-from ..logger import logger
 from ..types.protocol import CheckCanceled, UpdateProgress
+from ..utils import logger
 
 DEFAULT_CHUNK_SIZE: int = 1024 * 64  # 64 kb
 DEFAULT_TIMEOUT: int = 10
 DEFAULT_CA_CERT_PATH: str = certifi.where()
-
-
-@cache
-def _get_cached_logger(name: str) -> Logger:
-    """Get a cached logger for the given name.
-
-    Args:
-        name: The name of the logger.
-
-    Returns:
-        A Logger instance.
-    """
-    return logger.getChild(name)
 
 
 class BaseProvider(metaclass=ABCMeta):
@@ -107,7 +93,7 @@ class BaseProvider(metaclass=ABCMeta):
         Returns:
             A Logger instance named after the class.
         """
-        return _get_cached_logger(type(self).__name__)
+        return logger.get_logger(type(self).__name__)
 
     # abstract method
     @abstractmethod
@@ -187,6 +173,11 @@ class ProviderSubprocessMixin:
             subprocess.CalledProcessError: If `raise_non_zero_return` is True
                 and the process returns a non-zero exit code.
         """
+        _logger: Logger = (
+            logger.get_logger().getChild(type(self).__name__).getChild("popen_wrapper")
+        )
+        _logger.debug("Running: %s", command)
+
         kwargs.setdefault("stdout", subprocess.PIPE)
         kwargs.setdefault("stderr", subprocess.DEVNULL)
         kwargs.setdefault("stdin", subprocess.DEVNULL)
@@ -213,9 +204,11 @@ class ProviderSubprocessMixin:
                     **kwargs,
                 ),
             )
+        _logger.debug("Started PID %d", process.pid)
         try:
             yield process
         finally:
+            _logger.debug("Cleaning up PID %d", process.pid)
             self.popen_terminate(
                 process,
                 raise_nonzero_return=raise_non_zero_return,
@@ -242,6 +235,15 @@ class ProviderSubprocessMixin:
             subprocess.CalledProcessError: If `raise_nonzero_return` is True
                 and the process returns a non-zero exit code.
         """
+        _logger: Logger = (
+            logger.get_logger()
+            .getChild(type(self).__name__)
+            .getChild("popen_terminate")
+        )
+        _logger.debug(
+            "Terminating PID %d (timeout=%ds)", process.pid, terminate_timeout
+        )
+
         if terminate_timeout < 0:
             raise ValueError("terminate_timeout must be >= 0")
 
@@ -249,19 +251,30 @@ class ProviderSubprocessMixin:
         stderr: str | bytes | None = None
 
         if process.poll() is None:
+            _logger.debug("PID %d still running — terminating", process.pid)
             try:
                 parent = psutil.Process(process.pid)
                 processes = parent.children(recursive=True)
                 processes.append(parent)
             except psutil.NoSuchProcess:
+                _logger.debug("PID %d process tree vanished", process.pid)
                 processes = []
 
+            _logger.debug(
+                "PID %d terminating %d process(es)", process.pid, len(processes)
+            )
             for proc in processes:
                 with suppress(psutil.NoSuchProcess):
                     proc.terminate()
 
             # cSpell: words  procs
             _, alive = psutil.wait_procs(processes, timeout=terminate_timeout)
+            if alive:
+                _logger.warning(
+                    "PID %d — %d process(es) alive after terminate, killing",
+                    process.pid,
+                    len(alive),
+                )
 
             for proc in alive:
                 with suppress(psutil.NoSuchProcess):
@@ -272,14 +285,20 @@ class ProviderSubprocessMixin:
         try:
             stdout, stderr = process.communicate(timeout=0)
         except subprocess.TimeoutExpired:
+            _logger.exception("PID %d communicate timed out, killing", process.pid)
             process.kill()
             stdout, stderr = process.communicate()
+
+        _logger.debug("PID %d exited with code %s", process.pid, process.returncode)
 
         if (
             process.returncode is not None
             and process.returncode != 0
             and raise_nonzero_return
         ):
+            _logger.warning(
+                "PID %d non-zero exit %s — raising", process.pid, process.returncode
+            )
             raise subprocess.CalledProcessError(
                 returncode=process.returncode,
                 cmd=process.args,

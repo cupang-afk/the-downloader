@@ -3,6 +3,7 @@
 This module provides a download provider that uses the requests library.
 """
 
+from logging import Logger
 from pathlib import PurePath
 from typing import override
 
@@ -45,7 +46,9 @@ class RequestsProvider(BaseProvider):
         Raises:
             RequestsError: If the request fails or the download is interrupted.
         """
+        _logger: Logger = self.get_logger()
         if check_canceled():
+            _logger.debug("Canceled before start")
             return
 
         try:
@@ -64,6 +67,7 @@ class RequestsProvider(BaseProvider):
             with open(dest, "wb") as f:
                 for chunk in res.iter_content(self.chunk_size):
                     if check_canceled():
+                        _logger.debug("Canceled — %d/%d bytes", downloaded, total)
                         return
                     if not chunk:
                         continue

@@ -4,10 +4,11 @@ This module provides a download provider that uses the pycurl library, which
 is a Python interface to libcurl.
 """
 
+from logging import Logger
 from pathlib import PurePath
 from typing import Protocol, override
 
-import pycurl
+import pycurl  # pyright: ignore[reportMissingModuleSource]
 
 from ..exceptions import DownloadProviderError
 from ..types.protocol import BinaryIOProtocol, CheckCanceled, UpdateProgress
@@ -192,7 +193,9 @@ class PycurlProvider(BaseProvider):
         Raises:
             PycurlError: If pycurl fails to download the file.
         """
+        _logger: Logger = self.get_logger()
         if check_canceled():
+            _logger.debug("Canceled before start")
             return
 
         callback_errors: list[BaseException] = []
@@ -217,8 +220,12 @@ class PycurlProvider(BaseProvider):
                 curl.perform()
             _handle_callback_error(callback_errors)
         except pycurl.error as e:
-            _handle_pycurl_error(e, callback_errors, check_canceled, url)
+            # None = canceled (log why), otherwise raises
+            if _handle_pycurl_error(e, callback_errors, check_canceled, url) is None:
+                _logger.exception("Canceled download")
         except Exception as e:
+            if check_canceled():
+                return
             raise PycurlError(f"Download failed: {e}") from e
         finally:
             curl.close()

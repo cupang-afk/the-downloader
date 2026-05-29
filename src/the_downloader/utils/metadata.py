@@ -2,8 +2,11 @@
 
 from collections.abc import Mapping
 from contextlib import suppress
+from logging import Logger
 
 import requests
+
+from . import logger
 
 
 def get_total_size(
@@ -21,6 +24,7 @@ def get_total_size(
     Returns:
         The total size in bytes, or -1 if it cannot be determined.
     """
+    _logger: Logger = logger.get_logger().getChild("get_total_size")
     total: int = -1
     with suppress(requests.RequestException):
         # .get() with stream=True and only took the head
@@ -29,4 +33,7 @@ def get_total_size(
         res = session.get(url, headers=headers, stream=True, allow_redirects=True)
         res.raise_for_status()
         total = int(res.headers.get("Content-Length", total))
+        _logger.debug("Content-Length: %d", total)
+    if total < 0:
+        _logger.warning("Failed to get size for %s", url)
     return total

@@ -2,8 +2,10 @@
 
 import shutil
 import stat
+from logging import Logger
 from pathlib import Path
 
+from . import logger
 from .retry import retry
 
 
@@ -19,17 +21,22 @@ def resolve_binary(path: str | Path) -> Path:
     Raises:
         FileNotFoundError: If the binary cannot be found.
     """
+    _logger: Logger = logger.get_logger().getChild("resolve_binary")
     binary_path: Path = Path(path)
     if binary_path.is_absolute():
         if not binary_path.is_file():
+            _logger.error("Binary not found at %s", binary_path)
             raise FileNotFoundError(
                 f"Binary not found at {binary_path} or is not a file/exists"
             )
+        _logger.debug("Resolved %s", binary_path.absolute())
         return binary_path.absolute()
     else:
         bin_from_path: str | None = shutil.which(binary_path.name)
         if not bin_from_path:
+            _logger.error("Binary %s not found in PATH", binary_path.name)
             raise FileNotFoundError(f"Binary {binary_path.name} not found in PATH")
+        _logger.debug("Resolved %s \u2192 %s", binary_path.name, bin_from_path)
         return Path(bin_from_path).absolute()
 
 
@@ -47,9 +54,12 @@ def delete(
         retry_delay: Initial delay between retries in seconds.
         retry_backoff_factor: Factor to increase the delay between retries.
     """
+    _logger: Logger = logger.get_logger().getChild("delete")
     path = Path(path)
     if not path.exists():
         return
+
+    _logger.debug("Deleting %s", path)
 
     @retry(
         max_retries=max_retries,
@@ -69,3 +79,4 @@ def delete(
             shutil.rmtree(path)
 
     handler()
+    _logger.debug("Deleted %s", path)

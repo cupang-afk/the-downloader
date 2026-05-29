@@ -13,11 +13,11 @@ from .wget import WgetProvider
 try:
     from .pycurl import PycurlProvider
 except ImportError:
-    from ..logger import logger
+    from warnings import warn
 
-    logger.warning(
-        "pycurl is not installed, PycurlProvider will not be available, "
-        + "fallback PycurlProvider to use RequestsProvider"
+    warn(
+        "pycurl not installed — PycurlProvider falling back to RequestsProvider",
+        stacklevel=2,
     )
     PycurlProvider = RequestsProvider
 

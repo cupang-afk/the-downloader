@@ -2,8 +2,11 @@
 
 from collections.abc import Callable
 from functools import wraps
+from logging import Logger
 from time import sleep
 from typing import NamedTuple
+
+from . import logger
 
 
 class RetryResult[R](NamedTuple):
@@ -51,23 +54,38 @@ def retry[R, **P](
     def decorator(inner_func: Callable[P, R]) -> Callable[P, RetryResult[R]]:
         @wraps(inner_func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> RetryResult[R]:
+            _logger: Logger = (
+                logger.get_logger().getChild("retry").getChild(inner_func.__name__)
+            )
             exceptions: list[Exception] = []
             current_delay = delay
 
             for attempt in range(1, max_retries + 2):
                 try:
+                    result = inner_func(*args, **kwargs)
+                    if attempt == 1:
+                        _logger.info("Succeeded on first attempt")
+                    else:
+                        _logger.info("Succeeded after %d attempt(s)", attempt)
                     return RetryResult(
-                        result=inner_func(*args, **kwargs),
+                        result=result,
                         exceptions=exceptions,
                         succeeded=True,
                         attempts=attempt,
                     )
                 except Exception as e:
                     exceptions.append(e)
+                    _logger.warning(
+                        "Attempt %d/%d failed: %s",
+                        attempt,
+                        max_retries + 1,
+                        e,
+                    )
 
                     if current_delay > 0:
                         sleep(current_delay)
                     current_delay *= backoff_factor
+            _logger.error("All %d attempts failed", max_retries + 1)
             return RetryResult(
                 result=None,
                 exceptions=exceptions,

@@ -3,6 +3,7 @@
 import shutil
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
+from logging import Logger
 from pathlib import Path, PurePath
 from tempfile import NamedTemporaryFile
 from types import TracebackType
@@ -13,6 +14,7 @@ from ..exceptions import CallbackNonZeroReturnError, RetryError
 from ..provider import BaseProvider
 from ..task import DownloadStatus, DownloadTask
 from ..types.protocol import BinaryIOProtocol
+from ..utils import logger
 from ..utils.file import delete
 from ..utils.retry import retry
 
@@ -55,6 +57,15 @@ class BaseManager(metaclass=ABCMeta):
         self.max_retries: int = max_retries
         self.retry_delay: float = retry_delay
         self.retry_backoff_factor: float = retry_backoff_factor
+
+    @final
+    def get_logger(self) -> Logger:
+        """Get the logger for this manager.
+
+        Returns:
+            A Logger instance named after the class.
+        """
+        return logger.get_logger(type(self).__name__)
 
     # handler
     def _handle_callback[**P, R](
@@ -105,6 +116,8 @@ class BaseManager(metaclass=ABCMeta):
         Raises:
             RetryError: If the download fails after all retry attempts.
         """
+        _logger: Logger = self.get_logger()
+        _logger.info("Downloading %s — %s", task.progress_name, task.url)
         tempfile_path: Path | None = None
         try:
             with NamedTemporaryFile(
@@ -113,6 +126,7 @@ class BaseManager(metaclass=ABCMeta):
                 delete_on_close=False,
             ) as tmp:
                 tempfile_path = Path(tmp.name)
+            _logger.debug("Tempfile: %s", tempfile_path)
 
             task.status = DownloadStatus.RUNNING
             self._handle_callback(self.callback.on_start, task)
@@ -122,7 +136,7 @@ class BaseManager(metaclass=ABCMeta):
                 delay=self.retry_delay,
                 backoff_factor=self.retry_backoff_factor,
             )
-            def handler() -> None:
+            def download_handler() -> None:
                 def check_canceled() -> bool:
                     return task.is_canceled
 
@@ -153,27 +167,33 @@ class BaseManager(metaclass=ABCMeta):
                     update_progress=update_progress,
                 )
 
-            retry_result = handler()
+            retry_result = download_handler()
             if not retry_result.succeeded:
                 cause = retry_result.exceptions[-1] if retry_result.exceptions else None
+                _logger.error("Failed — %s", task.progress_name)
                 raise RetryError(f"Failed to download {task.progress_name}") from cause
 
             if task.is_canceled:
+                _logger.debug("Canceled after download — %s", task.progress_name)
                 task.status = DownloadStatus.CANCELED
                 self._handle_callback(self.callback.on_cancel, task)
                 return
 
             self._handle_result(tempfile_path, task.dest)
             task.status = DownloadStatus.FINISHED
+            _logger.info("Finished — %s", task.progress_name)
             self._handle_callback(self.callback.on_finish, task)
         except KeyboardInterrupt:
+            _logger.exception("Interrupted — %s", task.progress_name)
             task.status = DownloadStatus.CANCELED
             self._handle_callback(self.callback.on_cancel, task)
         except Exception as e:
             if task.is_canceled:
+                _logger.exception("Canceled download")
                 task.status = DownloadStatus.CANCELED
                 self._handle_callback(self.callback.on_cancel, task)
             else:
+                _logger.exception("Download failed")
                 task.status = DownloadStatus.ERROR
                 self._handle_callback(
                     self.callback.on_error, task, (type(e), e, e.__traceback__)
@@ -181,6 +201,7 @@ class BaseManager(metaclass=ABCMeta):
 
         finally:
             if tempfile_path is not None and tempfile_path.exists():
+                _logger.debug("Removing tempfile: %s", tempfile_path)
                 delete(tempfile_path)
 
     # abstract method

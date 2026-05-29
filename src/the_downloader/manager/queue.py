@@ -3,6 +3,7 @@
 import time
 from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor
+from logging import Logger
 from threading import Event, Lock
 from typing import override
 
@@ -57,9 +58,13 @@ class QueueDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is already running.
         """
+        _logger: Logger = self.get_logger()
         if self._threadpool is not None:
             raise RuntimeError("DownloadManager is already running")
         self._threadpool = ThreadPoolExecutor(max_workers=self._max_workers)
+        _logger.info(
+            "Started %s with %d workers", type(self).__name__, self._max_workers
+        )
         self._queue.clear()
 
     @override
@@ -69,9 +74,11 @@ class QueueDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if self._threadpool is None:
             raise RuntimeError("DownloadManager is not running")
         self._threadpool.shutdown(wait=True)
+        _logger.info("Stopped %s", type(self).__name__)
         self._threadpool = None
         self._queue.clear()
 
@@ -85,12 +92,14 @@ class QueueDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if self._threadpool is None:
             raise RuntimeError("DownloadManager is not running")
         if not isinstance(task._lock, Lock):  # pyright: ignore[reportPrivateUsage]
             task.set_lock(Lock())
         if not isinstance(task._cancel_event, Event):  # pyright: ignore[reportPrivateUsage]
             task.set_cancel_event(Event())
+        _logger.info("Queued %s", task.progress_name)
         self._queue.append((task, self._threadpool.submit(self._handle_download, task)))
 
     @override
@@ -100,8 +109,10 @@ class QueueDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if self._threadpool is None:
             raise RuntimeError("DownloadManager is not running")
+        _logger.info("Canceled %d queued task(s)", len(self._queue))
         for task, future in self._queue:
             task.cancel()
             future.cancel()
@@ -113,8 +124,10 @@ class QueueDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if self._threadpool is None:
             raise RuntimeError("DownloadManager is not running")
+        _logger.info("Waiting for %d task(s)", len(self._queue))
         try:
             while not all(future.done() for _, future in self._queue):
                 time.sleep(1)

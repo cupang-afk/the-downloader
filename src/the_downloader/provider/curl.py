@@ -4,6 +4,7 @@ This module provides a download provider that uses the curl command-line tool.
 """
 
 import os
+from logging import Logger
 from pathlib import Path, PurePath
 from typing import IO, cast, override
 
@@ -79,7 +80,9 @@ class CurlProvider(BaseProvider, ProviderSubprocessMixin):
         Raises:
             CurlError: If curl fails to download the file.
         """
+        _logger: Logger = self.get_logger()
         if check_canceled():
+            _logger.debug("Canceled before start")
             return
 
         # cSpell: words globoff
@@ -115,6 +118,7 @@ class CurlProvider(BaseProvider, ProviderSubprocessMixin):
                     raise CurlError("No output from curl")
                 while True:
                     if check_canceled():
+                        _logger.debug("Canceled — %d/%d bytes", downloaded, total)
                         break
                     chunk = cast(IO[bytes], p.stdout).read(self.chunk_size)
                     if not chunk:

@@ -1,6 +1,7 @@
 """Sequential download manager implementation."""
 
 from collections import deque
+from logging import Logger
 from threading import Event
 from typing import override
 
@@ -51,8 +52,10 @@ class BasicDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is already running.
         """
+        _logger: Logger = self.get_logger()
         if self._running.is_set():
             raise RuntimeError("DownloadManager is already running")
+        _logger.info("Started %s", type(self).__name__)
         self._running.set()
 
     @override
@@ -62,8 +65,10 @@ class BasicDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if not self._running.is_set():
             raise RuntimeError("DownloadManager is not running")
+        _logger.info("Stopped %s", type(self).__name__)
         self._running.clear()
 
     @override
@@ -73,8 +78,10 @@ class BasicDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if not self._running.is_set():
             raise RuntimeError("DownloadManager is not running")
+        _logger.info("Canceled %d queued task(s)", len(self._queue))
         for task in self._queue:
             task.cancel()
 
@@ -88,8 +95,10 @@ class BasicDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if not self._running.is_set():
             raise RuntimeError("DownloadManager is not running")
+        _logger.info("Queued %s", task.progress_name)
         self._queue.append(task)
 
     @override
@@ -99,8 +108,10 @@ class BasicDownloadManager(BaseManager):
         Raises:
             RuntimeError: If the manager is not running.
         """
+        _logger: Logger = self.get_logger()
         if not self._running.is_set():
             raise RuntimeError("DownloadManager is not running")
+        _logger.info("Processing %d task(s)", len(self._queue))
         while self._queue:
             # cSpell: words popleft
             task = self._queue.popleft()

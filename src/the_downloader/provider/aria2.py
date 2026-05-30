@@ -12,12 +12,11 @@ import time
 import xmlrpc.client
 from logging import Logger
 from pathlib import Path, PurePath
-from typing import cast, override
+from typing import IO, cast, override
 
 from ..exceptions import DownloadProviderError
 from ..types.protocol import CheckCanceled, UpdateProgress
 from ..utils.file import delete, resolve_binary
-from ..utils.network import check_open_port
 from .base import (
     DEFAULT_CA_CERT_PATH,
     DEFAULT_CHUNK_SIZE,
@@ -70,54 +69,76 @@ class Aria2Provider(BaseProvider, ProviderSubprocessMixin):
 
     @override
     def __pre_hook__(self) -> None:
-        """Start the aria2c RPC server before downloading."""
+        """Start the aria2c RPC server before downloading.
+
+        Tries ports 6800-7000 sequentially. starts aria2c directly
+        and detects EADDRINUSE from its stderr — zero probing on the happy path.
+        """
         host: str = "localhost"
-        port: int = 0
-        for port in range(6800, 7000 + 1):
-            if not check_open_port(port):
-                continue
-            break
-        if not port:
-            raise Aria2Error("No available port found for aria2c")
-        rpc_url = f"http://{host}:{port}/rpc"
 
-        cmd = [
-            str(self._bin),
-            "--ca-certificate",
-            self.ca_cert_path,
-            "--file-allocation",
-            "none",
-            "--enable-rpc",
-            "--rpc-secret",
-            self._rpc_token.split(":", 1)[1],
-            "--rpc-listen-port",
-            str(port),
-            "--rpc-allow-origin-all",
-            "--max-concurrent-downloads",
-            "999",
-            "--allow-overwrite",
-        ]
-        self._rpc_process = subprocess.Popen(
-            cmd,
-            # There is no need for these so we set to devnull
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            stdin=subprocess.DEVNULL,
-        )
+        for port in range(6800, 7001):
+            rpc_url = f"http://{host}:{port}/rpc"
+            cmd = [
+                str(self._bin),
+                "--ca-certificate",
+                self.ca_cert_path,
+                "--file-allocation",
+                "none",
+                "--enable-rpc",
+                "--rpc-secret",
+                self._rpc_token.split(":", 1)[1],
+                "--rpc-listen-port",
+                str(port),
+                "--rpc-allow-origin-all",
+                "--max-concurrent-downloads",
+                "999",
+                "--allow-overwrite",
+            ]
 
-        # Wait for RPC server to be ready
-        max_retries = 10
-        for _ in range(max_retries):
-            try:
-                with socket.create_connection((host, port), timeout=1):
-                    break
-            except TimeoutError, ConnectionRefusedError:
-                time.sleep(0.5)
-        else:
-            self.__post_hook__()
-            raise Aria2Error("Failed to start aria2c RPC server.")
+            self._rpc_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,  # capture to detect EADDRINUSE
+                stdin=subprocess.DEVNULL,
+            )
 
-        self._rpc_server = xmlrpc.client.ServerProxy(rpc_url)
+            ready = False
+            for _ in range(10):
+                if self._rpc_process.poll() is not None:
+                    break  # process died — check stderr below
+                try:
+                    with socket.create_connection((host, port), timeout=0.5):
+                        ready = True
+                        break
+                except TimeoutError, ConnectionRefusedError:
+                    time.sleep(0.3)
+
+            if ready:
+                self._rpc_server = xmlrpc.client.ServerProxy(rpc_url)
+                return
+
+            # cSpell: words EADDRINUSE
+            if self._rpc_process.poll() is not None:
+                stderr = (
+                    cast(IO[bytes], self._rpc_process.stderr).read() or b""
+                ).decode()
+                if "EADDRINUSE" in stderr or "Address already in use" in stderr:
+                    self.get_logger().warning("Port %d in use, trying next", port)
+                    self._rpc_process = None
+                    continue  # try next port
+
+                # Some other failure — abort immediately
+                raise Aria2Error(
+                    f"aria2c exited on port {port}: {stderr or 'unknown error'}"
+                )
+
+            self.popen_terminate(self._rpc_process, False, DEFAULT_TIMEOUT)
+            self._rpc_process = None
+            raise Aria2Error(
+                f"aria2c started on port {port} but RPC endpoint never became reachable"
+            )
+
+        raise Aria2Error("No available port found for aria2c (6800-7000 all in use)")
 
     @override
     def __post_hook__(self) -> None:

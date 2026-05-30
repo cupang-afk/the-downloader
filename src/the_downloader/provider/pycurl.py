@@ -67,6 +67,7 @@ def _create_progress_callback(
         _upload_total: float,
         _uploaded: float,
     ) -> int | None:
+        """Handle pycurl progress updates."""
         if check_canceled():
             return 1
         try:

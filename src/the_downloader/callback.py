@@ -19,24 +19,6 @@ class BaseCallback(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def on_start(self, task: DownloadTask) -> None:
-        """Called when a download task starts.
-
-        Args:
-            task: The download task that has started.
-        """
-        ...
-
-    @abstractmethod
-    def on_finish(self, task: DownloadTask) -> None:
-        """Called when a download task finishes successfully.
-
-        Args:
-            task: The download task that has finished.
-        """
-        ...
-
-    @abstractmethod
     def on_cancel(self, task: DownloadTask) -> None:
         """Called when a download task is canceled.
 
@@ -52,6 +34,15 @@ class BaseCallback(metaclass=ABCMeta):
         Args:
             task: The download task that encountered an error.
             exc_info: Exception information (type, value, traceback).
+        """
+        ...
+
+    @abstractmethod
+    def on_finish(self, task: DownloadTask) -> None:
+        """Called when a download task finishes successfully.
+
+        Args:
+            task: The download task that has finished.
         """
         ...
 
@@ -73,6 +64,15 @@ class BaseCallback(metaclass=ABCMeta):
         """
         ...
 
+    @abstractmethod
+    def on_start(self, task: DownloadTask) -> None:
+        """Called when a download task starts.
+
+        Args:
+            task: The download task that has started.
+        """
+        ...
+
 
 class BasicDownloadCallback(BaseCallback):
     """A basic download callback that prints progress to stdout.
@@ -83,36 +83,6 @@ class BasicDownloadCallback(BaseCallback):
     def __init__(self) -> None:
         """Initializes the BasicDownloadCallback."""
         self._template: str = "Download Status of {progress_name}: {message}"
-
-    @override
-    def on_start(self, task: DownloadTask) -> None:
-        """Prints a message when the download starts.
-
-        Args:
-            task: The download task that has started.
-        """
-        print(
-            self._template.format(
-                progress_name=task.progress_name,
-                message="started",
-            ),
-            flush=True,
-        )
-
-    @override
-    def on_finish(self, task: DownloadTask) -> None:
-        """Prints a message when the download finishes.
-
-        Args:
-            task: The download task that has finished.
-        """
-        print(
-            self._template.format(
-                progress_name=task.progress_name,
-                message="finished",
-            ),
-            flush=True,
-        )
 
     @override
     def on_cancel(self, task: DownloadTask) -> None:
@@ -146,6 +116,21 @@ class BasicDownloadCallback(BaseCallback):
         )
 
     @override
+    def on_finish(self, task: DownloadTask) -> None:
+        """Prints a message when the download finishes.
+
+        Args:
+            task: The download task that has finished.
+        """
+        print(
+            self._template.format(
+                progress_name=task.progress_name,
+                message="finished",
+            ),
+            flush=True,
+        )
+
+    @override
     def on_progress(
         self,
         task: DownloadTask,
@@ -172,24 +157,38 @@ class BasicDownloadCallback(BaseCallback):
             flush=True,
         )
 
-
-class NullDownloadCallback(BaseCallback):
-    """A download callback that does nothing."""
-
     @override
     def on_start(self, task: DownloadTask) -> None:
-        pass
+        """Prints a message when the download starts.
 
-    @override
-    def on_finish(self, task: DownloadTask) -> None:
-        pass
+        Args:
+            task: The download task that has started.
+        """
+        print(
+            self._template.format(
+                progress_name=task.progress_name,
+                message="started",
+            ),
+            flush=True,
+        )
+
+
+class NullDownloadCallback(BaseCallback):
+    """A download callback that ignores all events."""
 
     @override
     def on_cancel(self, task: DownloadTask) -> None:
+        """Ignore a download cancellation event."""
         pass
 
     @override
     def on_error(self, task: DownloadTask, exc_info: ExcInfo) -> None:
+        """Ignore a download error event."""
+        pass
+
+    @override
+    def on_finish(self, task: DownloadTask) -> None:
+        """Ignore a download finish event."""
         pass
 
     @override
@@ -200,4 +199,10 @@ class NullDownloadCallback(BaseCallback):
         total: int,
         **optional_data: Any,
     ) -> None:
+        """Ignore a download progress event."""
+        pass
+
+    @override
+    def on_start(self, task: DownloadTask) -> None:
+        """Ignore a download start event."""
         pass

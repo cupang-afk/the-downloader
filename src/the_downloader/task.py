@@ -150,24 +150,29 @@ class DownloadTask:
 
     # getter
     @property
-    def id(self) -> int:
-        """Unique identifier for the task."""
-        return self._id
-
-    @property
-    def url(self) -> str:
-        """The source URL."""
-        return self._url
-
-    @property
     def dest(self) -> Path | BinaryIOProtocol:
         """The destination path or file-like object."""
         return self._dest
 
     @property
+    def downloaded(self) -> int:
+        """Number of bytes downloaded so far."""
+        return self._downloaded
+
+    @property
     def headers(self) -> dict[str, str]:
         """The HTTP headers for the request."""
         return self._headers
+
+    @property
+    def id(self) -> int:
+        """Unique identifier for the task."""
+        return self._id
+
+    @property
+    def is_canceled(self) -> bool:
+        """Whether the task has been canceled."""
+        return self._cancel_event.is_set()
 
     @property
     def kind(self) -> Literal["file", "folder"]:
@@ -190,14 +195,9 @@ class DownloadTask:
         return self._total
 
     @property
-    def downloaded(self) -> int:
-        """Number of bytes downloaded so far."""
-        return self._downloaded
-
-    @property
-    def is_canceled(self) -> bool:
-        """Whether the task has been canceled."""
-        return self._cancel_event.is_set()
+    def url(self) -> str:
+        """The source URL."""
+        return self._url
 
     # setter
     @status.setter
@@ -206,17 +206,17 @@ class DownloadTask:
         with self._lock:
             self._status = value
 
-    @total.setter
-    def total(self, value: int) -> None:
-        """Sets the total number of bytes to download."""
-        with self._lock:
-            self._total = value
-
     @downloaded.setter
     def downloaded(self, value: int) -> None:
         """Sets the number of bytes downloaded."""
         with self._lock:
             self._downloaded = value
+
+    @total.setter
+    def total(self, value: int) -> None:
+        """Sets the total number of bytes to download."""
+        with self._lock:
+            self._total = value
 
     # method
     def cancel(self) -> None:

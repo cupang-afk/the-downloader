@@ -46,6 +46,36 @@ class BasicDownloadManager(BaseManager):
         self._running: Event = Event()
 
     @override
+    def add(self, task: DownloadTask) -> None:
+        """Adds a task to the queue.
+
+        Args:
+            task: The task to add.
+
+        Raises:
+            RuntimeError: If the manager is not running.
+        """
+        _logger: Logger = self.get_logger()
+        if not self._running.is_set():
+            raise RuntimeError("DownloadManager is not running")
+        _logger.info("Queued %s", task.progress_name)
+        self._queue.append(task)
+
+    @override
+    def cancel(self) -> None:
+        """Cancels all queued tasks.
+
+        Raises:
+            RuntimeError: If the manager is not running.
+        """
+        _logger: Logger = self.get_logger()
+        if not self._running.is_set():
+            raise RuntimeError("DownloadManager is not running")
+        _logger.info("Canceled %d queued task(s)", len(self._queue))
+        for task in self._queue:
+            task.cancel()
+
+    @override
     def start(self) -> None:
         """Starts the manager.
 
@@ -70,36 +100,6 @@ class BasicDownloadManager(BaseManager):
             raise RuntimeError("DownloadManager is not running")
         _logger.info("Stopped %s", type(self).__name__)
         self._running.clear()
-
-    @override
-    def cancel(self) -> None:
-        """Cancels all queued tasks.
-
-        Raises:
-            RuntimeError: If the manager is not running.
-        """
-        _logger: Logger = self.get_logger()
-        if not self._running.is_set():
-            raise RuntimeError("DownloadManager is not running")
-        _logger.info("Canceled %d queued task(s)", len(self._queue))
-        for task in self._queue:
-            task.cancel()
-
-    @override
-    def add(self, task: DownloadTask) -> None:
-        """Adds a task to the queue.
-
-        Args:
-            task: The task to add.
-
-        Raises:
-            RuntimeError: If the manager is not running.
-        """
-        _logger: Logger = self.get_logger()
-        if not self._running.is_set():
-            raise RuntimeError("DownloadManager is not running")
-        _logger.info("Queued %s", task.progress_name)
-        self._queue.append(task)
 
     @override
     def wait(self) -> None:

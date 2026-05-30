@@ -52,8 +52,11 @@ def retry[R, **P](
         raise ValueError("backoff_factor must be greater than or equal to 1")
 
     def decorator(inner_func: Callable[P, R]) -> Callable[P, RetryResult[R]]:
+        """Wrap a callable with retry behavior."""
+
         @wraps(inner_func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> RetryResult[R]:
+            """Run the wrapped callable and collect retry results."""
             _logger: Logger = (
                 logger.get_logger().getChild("retry").getChild(inner_func.__name__)
             )

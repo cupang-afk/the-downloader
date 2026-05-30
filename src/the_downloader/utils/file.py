@@ -67,6 +67,7 @@ def delete(
         backoff_factor=retry_backoff_factor,
     )
     def handler() -> None:
+        """Delete the path once with permission handling."""
         if path.is_dir():
             for item in path.rglob("*"):
                 if item.exists():

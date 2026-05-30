@@ -52,37 +52,6 @@ class QueueDownloadManager(BaseManager):
         self._max_workers: int = max_workers
 
     @override
-    def start(self) -> None:
-        """Starts the manager and its thread pool.
-
-        Raises:
-            RuntimeError: If the manager is already running.
-        """
-        _logger: Logger = self.get_logger()
-        if self._threadpool is not None:
-            raise RuntimeError("DownloadManager is already running")
-        self._threadpool = ThreadPoolExecutor(max_workers=self._max_workers)
-        _logger.info(
-            "Started %s with %d workers", type(self).__name__, self._max_workers
-        )
-        self._queue.clear()
-
-    @override
-    def stop(self) -> None:
-        """Shuts down the manager and its thread pool.
-
-        Raises:
-            RuntimeError: If the manager is not running.
-        """
-        _logger: Logger = self.get_logger()
-        if self._threadpool is None:
-            raise RuntimeError("DownloadManager is not running")
-        self._threadpool.shutdown(wait=True)
-        _logger.info("Stopped %s", type(self).__name__)
-        self._threadpool = None
-        self._queue.clear()
-
-    @override
     def add(self, task: DownloadTask) -> None:
         """Submits a task to the thread pool for execution.
 
@@ -116,6 +85,37 @@ class QueueDownloadManager(BaseManager):
         for task, future in self._queue:
             task.cancel()
             future.cancel()
+
+    @override
+    def start(self) -> None:
+        """Starts the manager and its thread pool.
+
+        Raises:
+            RuntimeError: If the manager is already running.
+        """
+        _logger: Logger = self.get_logger()
+        if self._threadpool is not None:
+            raise RuntimeError("DownloadManager is already running")
+        self._threadpool = ThreadPoolExecutor(max_workers=self._max_workers)
+        _logger.info(
+            "Started %s with %d workers", type(self).__name__, self._max_workers
+        )
+        self._queue.clear()
+
+    @override
+    def stop(self) -> None:
+        """Shuts down the manager and its thread pool.
+
+        Raises:
+            RuntimeError: If the manager is not running.
+        """
+        _logger: Logger = self.get_logger()
+        if self._threadpool is None:
+            raise RuntimeError("DownloadManager is not running")
+        self._threadpool.shutdown(wait=True)
+        _logger.info("Stopped %s", type(self).__name__)
+        self._threadpool = None
+        self._queue.clear()
 
     @override
     def wait(self) -> None:

@@ -283,7 +283,7 @@ class ProviderSubprocessMixin:
             psutil.wait_procs(alive, timeout=terminate_timeout)
 
         try:
-            stdout, stderr = process.communicate(timeout=0)
+            stdout, stderr = process.communicate(timeout=0.1)
         except subprocess.TimeoutExpired:
             _logger.exception("PID %d communicate timed out, killing", process.pid)
             process.kill()

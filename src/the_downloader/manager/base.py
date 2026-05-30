@@ -92,6 +92,30 @@ class BaseManager(metaclass=ABCMeta):
             raise CallbackNonZeroReturnError(f"{func.__name__} return non-zero value")
         return result
 
+    def _handle_download_error(
+        self,
+        task: DownloadTask,
+        exc: Exception,
+        _logger: Logger,
+    ) -> None:
+        """Handle an exception raised during a download.
+
+        Args:
+            task: The download task that failed or was canceled.
+            exc: The exception raised while handling the download.
+            _logger: Logger to use for status messages.
+        """
+        if task.is_canceled:
+            _logger.exception("Canceled download")
+            task.status = DownloadStatus.CANCELED
+            self._handle_callback(self.callback.on_cancel, task)
+        else:
+            _logger.exception("Download failed")
+            task.status = DownloadStatus.ERROR
+            self._handle_callback(
+                self.callback.on_error, task, (type(exc), exc, exc.__traceback__)
+            )
+
     def _handle_result(
         self, tempfile_path: Path, dest: Path | BinaryIOProtocol
     ) -> None:
@@ -137,7 +161,10 @@ class BaseManager(metaclass=ABCMeta):
                 backoff_factor=self.retry_backoff_factor,
             )
             def download_handler() -> None:
+                """Download the task with retry support."""
+
                 def check_canceled() -> bool:
+                    """Return whether the task was canceled."""
                     return task.is_canceled
 
                 def update_progress(
@@ -145,6 +172,7 @@ class BaseManager(metaclass=ABCMeta):
                     total: int,
                     **optional_data: Any,
                 ) -> None:
+                    """Forward provider progress to the manager callback."""
                     try:
                         self._handle_callback(
                             self.callback.on_progress,
@@ -188,16 +216,7 @@ class BaseManager(metaclass=ABCMeta):
             task.status = DownloadStatus.CANCELED
             self._handle_callback(self.callback.on_cancel, task)
         except Exception as e:
-            if task.is_canceled:
-                _logger.exception("Canceled download")
-                task.status = DownloadStatus.CANCELED
-                self._handle_callback(self.callback.on_cancel, task)
-            else:
-                _logger.exception("Download failed")
-                task.status = DownloadStatus.ERROR
-                self._handle_callback(
-                    self.callback.on_error, task, (type(e), e, e.__traceback__)
-                )
+            self._handle_download_error(task, e, _logger)
 
         finally:
             if tempfile_path is not None and tempfile_path.exists():
@@ -206,13 +225,12 @@ class BaseManager(metaclass=ABCMeta):
 
     # abstract method
     @abstractmethod
-    def start(self) -> None:
-        """Starts the download manager."""
-        ...
+    def add(self, task: DownloadTask) -> None:
+        """Adds a download task to the manager.
 
-    @abstractmethod
-    def stop(self) -> None:
-        """Stops the download manager."""
+        Args:
+            task: The download task to add.
+        """
         ...
 
     @abstractmethod
@@ -221,12 +239,13 @@ class BaseManager(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def add(self, task: DownloadTask) -> None:
-        """Adds a download task to the manager.
+    def start(self) -> None:
+        """Starts the download manager."""
+        ...
 
-        Args:
-            task: The download task to add.
-        """
+    @abstractmethod
+    def stop(self) -> None:
+        """Stops the download manager."""
         ...
 
     @abstractmethod

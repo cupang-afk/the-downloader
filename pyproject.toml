@@ -4,19 +4,12 @@ name = "the-downloader"
 version = "0.1.0"
 description = "A download orchestrator for managing downloads with pluggable providers and callback support."
 readme = "README.md"
-authors = [
-    { name = "cupang-afk", email = "pixelview56@gmail.com" }
-]
+authors = [{ name = "cupang-afk", email = "pixelview56@gmail.com" }]
 requires-python = ">=3.14"
-dependencies = [
-    "psutil>=7.2.2",
-    "requests>=2.34.2",
-]
+dependencies = ["psutil>=7.2.2", "requests>=2.34.2"]
 
 [project.optional-dependencies]
-curl = [
-    "pycurl>=7.46.0",
-]
+pycurl = ["pycurl>=7.46.0"]
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12.0"]
@@ -28,8 +21,8 @@ typeCheckingMode = "recommended"
 reportUnreachable = false
 reportUnnecessaryIsInstance = false
 reportUnusedCallResult = false
-reportAny = false # Any type can be usefull
-reportExplicitAny = false # Explicit Any type can be usefull too
+reportAny = false                   # Any type can be usefull
+reportExplicitAny = false           # Explicit Any type can be usefull too
 
 # ruff
 [tool.ruff]
@@ -39,42 +32,42 @@ include = ["src/**/*.py"]
 
 [tool.ruff.lint]
 select = [
-    "ANN",
-    "B",
-    "C4",
-    "D",
-    "E",
-    "F",
-    "I",
-    "N",
-    "PERF",
-    "PL",
-    "RUF",
-    "SIM",
-    "TRY",
-    "UP",
-    "W",
+  "ANN",
+  "B",
+  "C4",
+  "D",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PERF",
+  "PL",
+  "RUF",
+  "SIM",
+  "TRY",
+  "UP",
+  "W",
 ]
 ignore = [
-    "ANN401",  # Any type, sometime this useful
-    "TRY003",  # Avoid specifying long messages outside the exception class
-    "TRY301",  # Avoid raising and catching exceptions in the same try block.
-    "PLR0913", # Too many arguments to function call
-    "D203",    # one-blank-line-before-class (conflicts with D211)
-    "D212",    # multi-line-summary-first-line (allow flexibility)
+  "ANN401",  # Any type, sometime this useful
+  "TRY003",  # Avoid specifying long messages outside the exception class
+  "TRY301",  # Avoid raising and catching exceptions in the same try block.
+  "PLR0913", # Too many arguments to function call
+  "D203",    # one-blank-line-before-class (conflicts with D211)
+  "D212",    # multi-line-summary-first-line (allow flexibility)
 ]
 fixable = ["ALL"]
 unfixable = []
 
 exclude = [
-    ".git",
-    ".venv",
-    "__pycache__",
-    "dist",
-    "build",
-    "migrations",
-    "tests",
-    "src/the_downloader/__version__.py",
+  ".git",
+  ".venv",
+  "__pycache__",
+  "dist",
+  "build",
+  "migrations",
+  "tests",
+  "src/the_downloader/__version__.py",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -86,9 +79,4 @@ indent-style = "space"
 line-ending = "lf"
 
 [dependency-groups]
-dev = [
-    "basedpyright>=1.39.6",
-    "pytest>=9.0.3",
-    "ruff>=0.15.15",
-    "uv>=0.11.18",
-]
+dev = ["basedpyright>=1.39.6", "pytest>=9.0.3", "ruff>=0.15.15", "uv>=0.11.18"]

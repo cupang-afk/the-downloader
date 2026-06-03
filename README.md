@@ -1,5 +1,7 @@
 # The Downloader
 
+[![License: LGPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](LICENSE)
+
 A Python library for orchestrating downloads. Takes a URL and a destination,
 and handles the download — with support for multiple engines, parallel
 downloads, progress tracking, and cleanup.
@@ -80,7 +82,8 @@ class MyProvider(BaseProvider):
         check_canceled: CheckCanceled,
         update_progress: UpdateProgress,
     ) -> None:
-        # Call check_canceled() to support cancellation; best practice is to call it in a loop
+        # Call check_canceled() to support cancellation; best practice is
+        # to call it in a loop
         # Call update_progress(downloaded, total) to report progress
         pass
 ```
@@ -122,6 +125,14 @@ class MyCallback(BaseCallback):
     def on_cancel(self, task: DownloadTask) -> None: ...
     def on_error(self, task: DownloadTask, exc_info: ExcInfo) -> None: ...
 ```
+
+> [!WARNING]
+> All callbacks must return `None` or `0`. Any other return value triggers a
+> `CallbackNonZeroReturnError`
+
+## License
+
+LGPL-3.0-or-later — see [LICENSE](LICENSE).
 
 ## Roadmap
 

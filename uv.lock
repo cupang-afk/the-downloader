@@ -244,7 +244,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-curl = [
+pycurl = [
     { name = "pycurl" },
 ]
 
@@ -259,10 +259,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "psutil", specifier = ">=7.2.2" },
-    { name = "pycurl", marker = "extra == 'curl'", specifier = ">=7.46.0" },
+    { name = "pycurl", marker = "extra == 'pycurl'", specifier = ">=7.46.0" },
     { name = "requests", specifier = ">=2.34.2" },
 ]
-provides-extras = ["curl"]
+provides-extras = ["pycurl"]
 
 [package.metadata.requires-dev]
 dev = [

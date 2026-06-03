@@ -1,16 +1,20 @@
+<!-- cSpell:disable -->
 # AGENTS.md
 
 ## Scope
 
-This file defines Python code style and docstring rules for this repository.
+This file defines Python code style and docstring rules for this
+repository.
 
-Focus on readable, predictable declarations. Keep examples minimal. Follow these rules for new code and for touched code when practical.
+Focus on readable, predictable declarations. Keep examples minimal. Follow
+these rules for new code and for touched code when practical.
 
 ## Python Style Priorities
 
 1. Correctness first.
 2. Clear type hints for public APIs and non-trivial internals.
-3. Google style docstrings for modules, classes, functions, methods, properties, and important attributes.
+3. Google style docstrings for modules, classes, functions, methods,
+   properties, and important attributes.
 4. Stable declaration ordering.
 5. Simple, explicit Python over clever compact code.
 
@@ -23,12 +27,14 @@ Use standard Python naming unless an existing API requires otherwise.
 - Functions and methods: `snake_case`.
 - Classes and exceptions: `PascalCase`.
 - Private names: single leading underscore, e.g. `_parse_url`.
-- Protected/internal-reserved names: double leading underscore, e.g. `__build_headers`.
+- Protected/internal-reserved names: double leading underscore, e.g.
+  `__build_headers`.
 - Dunder names: double leading and trailing underscores, e.g. `__init__`.
 
 ## Global Naming Order
 
-When a category can contain private, protected, and public names, order by naming tier first:
+When a category can contain private, protected, and public names, order by
+naming tier first:
 
 1. `_private`
 2. `__protected`
@@ -36,7 +42,9 @@ When a category can contain private, protected, and public names, order by namin
 
 Inside each tier, sort names A-Z, case-insensitive.
 
-Sort A-Z unless doing so conflicts with a runtime, inheritance, or dependency requirement. When a dependency requirement exists, keep the required declaration before its dependents.
+Sort A-Z unless doing so conflicts with a runtime, inheritance, or dependency
+requirement. When a dependency requirement exists, keep the required declaration
+before its dependents.
 
 Dunder names do not use this naming order.
 
@@ -50,7 +58,9 @@ Order top-level declarations by category:
 4. Classes
 5. `if __name__ == "__main__":`
 
-Within each category, apply global naming order, then A-Z case-insensitive order unless a runtime, inheritance, or dependency requirement needs a different order.
+Within each category, apply global naming order, then A-Z case-insensitive order
+unless a runtime, inheritance, or dependency requirement needs a different
+order.
 
 ```python
 _PRIVATE_TIMEOUT = 5
@@ -88,10 +98,12 @@ Order declarations inside classes by category:
 4. Methods, static methods, and class methods
 5. Properties
 
-Within constants, variables, methods, static methods, class methods, and properties:
+Within constants, variables, methods, static methods, class methods, and
+properties:
 
 1. Apply global naming order when applicable.
-2. Sort A-Z case-insensitive inside each naming tier unless a runtime, inheritance, or dependency requirement needs a different order.
+2. Sort A-Z case-insensitive inside each naming tier unless a runtime,
+   inheritance, or dependency requirement needs a different order.
 
 Dunder methods are ordered separately:
 
@@ -129,18 +141,22 @@ class DownloadTask:
 
 ## Docstring Style
 
-Use Google style docstrings compatible with `sphinx.ext.napoleon` and Ruff pydocstyle convention `google`.
+Use Google style docstrings compatible with `sphinx.ext.napoleon` and Ruff
+pydocstyle convention `google`.
 
 General rules:
 
 - Start with a one-line imperative or descriptive summary.
 - Add a blank line before sections.
-- Use sections only when needed: `Args`, `Returns`, `Yields`, `Raises`, `Attributes`, `Examples`, `Note`.
+- Use sections only when needed: `Args`, `Returns`, `Yields`, `Raises`,
+  `Attributes`, `Examples`, `Note`.
 - Do not document `self` or `cls` in `Args`.
-- If PEP 484 annotations already show types clearly, omit repeated types in docstrings.
+- If PEP 484 annotations already show types clearly, omit repeated types in
+  docstrings.
 - Document exceptions that are part of the interface.
 - Document properties in the getter docstring.
-- For `__init__`, document initialization either in the class docstring or in `__init__`, not both.
+- For `__init__`, document initialization either in the class docstring or in
+  `__init__`, not both.
 
 ```python
 def fetch(url: str, timeout: float) -> bytes:
@@ -189,74 +205,134 @@ def progress(self) -> float:
 
 ## Agentic Workflow
 
-Before running any check workflow, first ensure the code style rules above are applied to the relevant source files. Use the helper snippets below when declaration order, docstrings, or other style requirements are hard to inspect manually. After code style is applied, continue with the BasedPyright and Ruff check workflows.
+Before running any check workflow, first ensure the code style rules above are
+applied to the relevant source files. Use the helper snippets below when
+declaration order, docstrings, or other style requirements are hard to inspect
+manually. After code style is applied, continue with the BasedPyright, Ruff,
+and Pytest check workflows.
 
-Use BasedPyright for type checking. Use Ruff for linting, fixing, and formatting.
+Use BasedPyright for type checking. Use Ruff for linting, fixing, and
+formatting. Use Pytest for tests.
 
-Project source code lives under `src/`. Run BasedPyright and Ruff against `src/` only unless the user asks to check another path.
+BasedPyright, Ruff, and Pytest are development dependencies in
+`pyproject.toml`. They are expected to be installed in the active development
+environment. If all command forms for a tool fail, stop work, treat the check
+as failed, and ask the user to install development tools with `uv sync --dev`
+or another environment-specific method.
+
+Project source code lives under `src/`. Run BasedPyright and Ruff against
+`src/` only unless the user asks to check another path.
 
 ### BasedPyright Workflow
 
 BasedPyright command priority:
 
-1. `uvx basedpyright`.
-2. `python -m basedpyright` if `uvx basedpyright` fails.
-3. If BasedPyright is unavailable through all options, stop work, treat the check as failed, and ask the user to install BasedPyright.
+1. `uv run basedpyright`.
+2. `python -m basedpyright` if `uv run basedpyright` fails.
+3. `basedpyright` if `python -m basedpyright` fails.
+4. If BasedPyright is unavailable through all options, stop work, treat the
+   check as failed, and ask the user to install development tools with
+   `uv sync --dev` or another environment-specific method.
 
 Type checking workflow:
 
-1. Run `uvx basedpyright src/` and record the initial errors.
+1. Run `uv run basedpyright src/` and record the initial errors.
 2. If errors exist, fix the troubled code manually.
-3. Never suppress BasedPyright errors with comments, ignore directives, or rule configuration changes unless the user explicitly approves that exact suppression.
+3. Never suppress BasedPyright errors with comments, ignore directives, or rule
+   configuration changes unless the user explicitly approves that exact
+   suppression.
 4. Never modify BasedPyright rules to make errors disappear.
 5. Run BasedPyright again.
 6. If the check still fails, repeat manual fixes and checks, up to 5 attempts.
-7. After 5 failed manual attempts, stop and ask the user for guidance. Include the remaining error output, affected code context, what was tried, and suggested fixes.
+7. After 5 failed manual attempts, stop and ask the user for guidance. Include
+   the remaining error output, affected code context, what was tried, and
+   suggested fixes.
 
 When using fallback commands, keep the same check intent:
 
 ```bash
-uvx basedpyright src/
+uv run basedpyright src/
 ```
 
 ```bash
 python -m basedpyright src/
 ```
 
+```bash
+basedpyright src/
+```
+
+### Pytest Workflow
+
+Pytest command priority:
+
+1. `uv run pytest`.
+2. `python -m pytest` if `uv run pytest` fails.
+3. `pytest` if `python -m pytest` fails.
+4. If Pytest is unavailable through all options, stop work, treat the check as
+   failed, and ask the user to install development tools with `uv sync --dev`
+   or another environment-specific method.
+
+Testing workflow:
+
+1. Run `uv run pytest` and record the initial failures.
+2. If failures exist, fix the troubled code manually.
+3. Run Pytest again.
+4. If the check still fails, repeat manual fixes and checks, up to 5 attempts.
+5. After 5 failed manual attempts, stop and ask the user for guidance. Include
+   the remaining failure output, affected code context, what was tried, and
+   suggested fixes.
+
+When using fallback commands, keep the same check intent:
+
+```bash
+uv run pytest
+```
+
+```bash
+python -m pytest
+```
+
+```bash
+pytest
+```
+
 ### Ruff Workflow
 
 Ruff command priority:
 
-1. `ruff` directly.
-2. `uvx ruff` if direct `ruff` is not installed.
-3. `python -m ruff` if neither command above is installed.
-4. If Ruff is unavailable through all options, stop work, treat the check as failed, and ask the user to install Ruff.
+1. `uv run ruff`.
+2. `python -m ruff` if `uv run ruff` fails.
+3. `ruff` if `python -m ruff` fails.
+4. If Ruff is unavailable through all options, stop work, treat the check as
+   failed, and ask the user to install development tools with `uv sync --dev`
+   or another environment-specific method.
 
 Code checking workflow:
 
-1. Run `ruff check src/` and record the initial errors.
-2. Run `ruff check src/ --fix`.
-3. Run `ruff format src/`.
-4. Run `ruff check src/` again and compare remaining errors with the initial errors.
+1. Run `uv run ruff check src/` and record the initial errors.
+2. Run `uv run ruff check src/ --fix`.
+3. Run `uv run ruff format src/`.
+4. Run `uv run ruff check src/` again and compare remaining errors with the
+   initial errors.
 5. If errors remain, fix the troubled code manually.
-6. Never suppress Ruff errors with `# noqa`, disable comments, or rule configuration changes unless the user explicitly approves that exact suppression.
+6. Never suppress Ruff errors with `# noqa`, disable comments, or rule
+   configuration changes unless the user explicitly approves that exact
+   suppression.
 7. Never modify Ruff rules to make errors disappear.
 8. Run a final `ruff check src/`.
-9. If the final check still fails, repeat manual fixes and final checks, up to 5 attempts.
-10. After 5 failed manual attempts, stop and ask the user for guidance. Include the remaining error output, affected code context, what was tried, and suggested fixes.
+9. If the final check still fails, repeat manual fixes and final checks, up to
+   5 attempts.
+10. After 5 failed manual attempts, stop and ask the user for guidance. Include
+    the remaining error output, affected code context, what was tried, and
+    suggested fixes.
 
 When using fallback commands, keep the same arguments:
 
 ```bash
-ruff check src/
-ruff check src/ --fix
-ruff format src/
-```
-
-```bash
-uvx ruff check src/
-uvx ruff check src/ --fix
-uvx ruff format src/
+uv run ruff check src/
+uv run ruff check src/ --fix
+uv run ruff format src/
 ```
 
 ```bash
@@ -265,10 +341,17 @@ python -m ruff check src/ --fix
 python -m ruff format src/
 ```
 
+```bash
+ruff check src/
+ruff check src/ --fix
+ruff format src/
+```
+
 ## AST Helper Snippets
 
 Use `ast` for quick checks when declaration order is hard to inspect manually.
-These snippets are written exclusively for the current project Python version: Python 3.14.5.
+These snippets are written exclusively for the current project Python version:
+Python 3.14.5.
 
 List top-level declarations:
 
@@ -309,7 +392,10 @@ for node in module.body:
                     print("  variable", item.lineno)
                 case ast.AnnAssign(target=ast.Name(id=name)):
                     print("  variable", name, item.lineno)
-                case ast.AsyncFunctionDef(name=name) | ast.FunctionDef(name=name):
+                case (
+                    ast.AsyncFunctionDef(name=name)
+                    | ast.FunctionDef(name=name)
+                ):
                     print("  method", name, item.lineno)
 ```
 

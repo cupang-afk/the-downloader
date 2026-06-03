@@ -53,6 +53,8 @@ def retry[R, **P](
 
     def decorator(inner_func: Callable[P, R]) -> Callable[P, RetryResult[R]]:
         """Wrap a callable with retry behavior."""
+        if not callable(inner_func):
+            raise TypeError("inner_func must be callable")
 
         @wraps(inner_func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> RetryResult[R]:

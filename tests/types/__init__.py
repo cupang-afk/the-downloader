@@ -1,0 +1,1 @@
+"""Type protocol tests."""

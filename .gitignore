@@ -12,3 +12,6 @@ wheels/
 .reference
 prototype_test
 docs
+.ruff_cache
+.pytest_cache
+.python-version

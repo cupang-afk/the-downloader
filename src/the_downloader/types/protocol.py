@@ -62,6 +62,7 @@ class UpdateProgress(Protocol):
 
 
 # event
+@runtime_checkable
 class EventProtocol(Protocol):
     """Protocol for event objects."""
 
